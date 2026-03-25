@@ -24,10 +24,11 @@ function App() {
 
   const [selected, setSelected] = useState(null);
   const [score, setScore] = useState(0);
+  const [moves, setMoves] = useState(20);
+  const [gameOver, setGameOver] = useState(false);
 
   function findMatches(b) {
     const matched = Array.from({ length: 9 }, () => Array(9).fill(false));
-
     for (let r = 0; r < 9; r++) {
       for (let c = 0; c < 7; c++) {
         if (b[r][c] && b[r][c] === b[r][c+1] && b[r][c] === b[r][c+2]) {
@@ -35,7 +36,6 @@ function App() {
         }
       }
     }
-
     for (let r = 0; r < 7; r++) {
       for (let c = 0; c < 9; c++) {
         if (b[r][c] && b[r][c] === b[r+1][c] && b[r][c] === b[r+2][c]) {
@@ -43,7 +43,6 @@ function App() {
         }
       }
     }
-
     return matched;
   }
 
@@ -61,7 +60,6 @@ function App() {
   function dropCats(b) {
     const newBoard = Array.from({ length: 9 }, () => Array(9).fill(null));
     const breeds = ["SI","PE","TA","MB","BG","SF"];
-
     for (let c = 0; c < 9; c++) {
       let emptyRow = 8;
       for (let r = 8; r >= 0; r--) {
@@ -78,6 +76,7 @@ function App() {
   }
 
   function handleClick(row, col) {
+    if (gameOver) return;
     if (!selected) {
       setSelected({ row, col });
       return;
@@ -105,8 +104,30 @@ function App() {
       } else {
         setBoard(newBoard);
       }
+
+      const newMoves = moves - 1;
+      setMoves(newMoves);
+      if (newMoves === 0) setGameOver(true);
     }
 
+    setSelected(null);
+  }
+
+  function restartGame() {
+    setBoard([
+      ["SI","PE","TA","MB","BG","SF","SI","PE","TA"],
+      ["PE","TA","MB","BG","SF","SI","PE","TA","MB"],
+      ["TA","MB","BG","SF","SI","PE","TA","MB","BG"],
+      ["MB","BG","SF","SI","PE","TA","MB","BG","SF"],
+      ["BG","SF","SI","PE","TA","MB","BG","SF","SI"],
+["SF","SI","PE","TA","MB","BG","SF","SI","PE"],
+      ["SI","PE","TA","MB","BG","SF","SI","PE","TA"],
+      ["PE","TA","MB","BG","SF","SI","PE","TA","MB"],
+      ["TA","MB","BG","SF","SI","PE","TA","MB","BG"],
+    ]);
+    setScore(0);
+    setMoves(20);
+    setGameOver(false);
     setSelected(null);
   }
 
@@ -121,12 +142,53 @@ function App() {
     }}>
 
       <h1 style={{ color: "#ff85b3", fontSize: "32px" }}>
-        🐱 Cat Consensus
+        🐱 Mochi Crush
       </h1>
 
-      <p style={{ color: "#ff85b3", fontSize: "24px", margin: "10px" }}>
-        ⭐ Score: {score}
-      </p>
+      <div style={{
+        display: "flex",
+        gap: "40px",
+        marginBottom: "16px",
+      }}>
+        <p style={{ color: "#ff85b3", fontSize: "22px" }}>
+          ⭐ Score: {score}
+        </p>
+        <p style={{ color: moves <= 5 ? "red" : "#ff85b3", fontSize: "22px" }}>
+          👣 Moves: {moves}
+        </p>
+      </div>
+
+      {gameOver && (
+        <div style={{
+          backgroundColor: "#ffb7d5",
+          padding: "20px",
+          borderRadius: "20px",
+          textAlign: "center",
+          marginBottom: "16px",
+        }}>
+          <p style={{ fontSize: "24px", color: "#ff85b3" }}>
+            🐱 Game Over!
+          </p>
+          <p style={{ fontSize: "20px", color: "#ff85b3" }}>
+            Final Score: {score}
+          </p>
+          <button
+            onClick={restartGame}
+            style={{
+              backgroundColor: "#ff85b3",
+              color: "white",
+              border: "none",
+              padding: "10px 20px",
+              borderRadius: "10px",
+              fontSize: "18px",
+              cursor: "pointer",
+              marginTop: "10px",
+            }}
+          >
+            Play Again 🐱
+          </button>
+        </div>
+      )}
 
       <div style={{
         display: "grid",
@@ -135,6 +197,7 @@ function App() {
         backgroundColor: "#ffe0ef",
         padding: "16px",
         borderRadius: "20px",
+        opacity: gameOver ? 0.5 : 1,
       }}>
         {board.map((row, r) =>
           row.map((code, c) => (
@@ -157,7 +220,7 @@ function App() {
                   ? "scale(1.1)"
                   : "scale(1)",
                 transition: "all 0.2s ease",
-                cursor: "pointer",
+                cursor: gameOver ? "not-allowed" : "pointer",
               }}
             >
               <img
