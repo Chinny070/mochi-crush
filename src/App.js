@@ -6,6 +6,50 @@ import SF from "./cats/SF.jpg.webp";
 import SI from "./cats/SI.jpg.webp";
 import TA from "./cats/TA.jpg.webp";
 
+function playPop() {
+  const ctx = new AudioContext();
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.connect(g);
+  g.connect(ctx.destination);
+  o.frequency.setValueAtTime(600, ctx.currentTime);
+  g.gain.setValueAtTime(0.3, ctx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+  o.start(ctx.currentTime);
+  o.stop(ctx.currentTime + 0.1);
+}
+
+function playMeow() {
+  const ctx = new AudioContext();
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.connect(g);
+  g.connect(ctx.destination);
+  o.type = "sine";
+  o.frequency.setValueAtTime(400, ctx.currentTime);
+  o.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.1);
+  o.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.3);
+  g.gain.setValueAtTime(0.3, ctx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+  o.start(ctx.currentTime);
+  o.stop(ctx.currentTime + 0.3);
+}
+
+function playGameOver() {
+  const ctx = new AudioContext();
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.connect(g);
+  g.connect(ctx.destination);
+  o.type = "sawtooth";
+  o.frequency.setValueAtTime(300, ctx.currentTime);
+  o.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.5);
+  g.gain.setValueAtTime(0.3, ctx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+  o.start(ctx.currentTime);
+  o.stop(ctx.currentTime + 0.5);
+}
+
 function App() {
 
   const catImages = { SI, PE, TA, MB, BG, SF };
@@ -78,10 +122,10 @@ function App() {
   function handleClick(row, col) {
     if (gameOver) return;
     if (!selected) {
+      playPop();
       setSelected({ row, col });
       return;
     }
-
     const rowDiff = Math.abs(selected.row - row);
     const colDiff = Math.abs(selected.col - col);
     const isNeighbor = (rowDiff === 1 && colDiff === 0) ||
@@ -97,6 +141,7 @@ function App() {
       const hasMatch = matched.some(row => row.some(cell => cell));
 
       if (hasMatch) {
+        playMeow();
         const { newBoard: cleared, count } = removeMatches(newBoard, matched);
         const dropped = dropCats(cleared);
         setBoard(dropped);
@@ -107,7 +152,10 @@ function App() {
 
       const newMoves = moves - 1;
       setMoves(newMoves);
-      if (newMoves === 0) setGameOver(true);
+      if (newMoves === 0) {
+        playGameOver();
+        setGameOver(true);
+      }
     }
 
     setSelected(null);
@@ -120,7 +168,7 @@ function App() {
       ["TA","MB","BG","SF","SI","PE","TA","MB","BG"],
       ["MB","BG","SF","SI","PE","TA","MB","BG","SF"],
       ["BG","SF","SI","PE","TA","MB","BG","SF","SI"],
-["SF","SI","PE","TA","MB","BG","SF","SI","PE"],
+      ["SF","SI","PE","TA","MB","BG","SF","SI","PE"],
       ["SI","PE","TA","MB","BG","SF","SI","PE","TA"],
       ["PE","TA","MB","BG","SF","SI","PE","TA","MB"],
       ["TA","MB","BG","SF","SI","PE","TA","MB","BG"],
