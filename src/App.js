@@ -57,6 +57,29 @@ const INITIAL_BOARD = [
   ["TA","MB","BG","SF","SI","PE","TA","MB","BG"],
 ];
 
+const confettiColors = ["#ff85b3","#ffb7d5","#ffe0ef","#ff6b9d","#ffd1e8"];
+
+function Confetti({ show }) {
+  if (!show) return null;
+  return (
+    <div style={{ position:"fixed", top:0, left:0, width:"100%", height:"100%", pointerEvents:"none", zIndex:999 }}>
+      {Array.from({ length: 20 }).map((_, i) => (
+        <div key={i} style={{
+          position: "absolute",
+          left: (i * 5) + "%",
+          top: "-10px",
+          width: "10px",
+          height: "10px",
+          backgroundColor: confettiColors[i % confettiColors.length],
+          borderRadius: i % 2 === 0 ? "50%" : "0",
+          animation: "fall 2s linear forwards",
+          animationDelay: (i * 0.05) + "s",
+        }} />
+      ))}
+    </div>
+  );
+}
+
 function App() {
   const catImages = { SI, PE, TA, MB, BG, SF };
   const [board, setBoard] = useState(INITIAL_BOARD);
@@ -67,10 +90,99 @@ function App() {
   const [playerName, setPlayerName] = useState("");
   const [nameEntered, setNameEntered] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
     getLeaderboard().then(data => setLeaderboard(data));
   }, []);
+
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.innerHTML = `
+      @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap');
+      * { font-family: 'Nunito', sans-serif; }
+      @keyframes sparkle {
+        0%, 100% { opacity: 0; transform: scale(0); }
+        50% { opacity: 1; transform: scale(1); }
+      }
+      @keyframes fall {
+        0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+        100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+      }
+      @keyframes glow {
+        0%, 100% { box-shadow: 0 0 10px #ffb7d5, 0 0 20px #ffb7d5; }
+        50% { box-shadow: 0 0 20px #ff85b3, 0 0 40px #ff85b3; }
+      }
+      @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+      }
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+      }
+      .score-box {
+        animation: glow 2s infinite;
+        background: linear-gradient(135deg, #ff85b3, #ffb7d5);
+        border-radius: 16px;
+        padding: 10px 24px;
+        color: white;
+        font-size: 22px;
+        font-weight: 900;
+      }
+      .title {
+        animation: float 3s ease-in-out infinite;
+        background: linear-gradient(135deg, #ff85b3, #ff6b9d);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 48px;
+        font-weight: 900;
+        margin-bottom: 10px;
+      }
+      .play-button {
+        background: linear-gradient(135deg, #ff85b3, #ff6b9d);
+        color: white;
+        border: none;
+        padding: 14px 40px;
+        border-radius: 30px;
+        font-size: 22px;
+        font-weight: 900;
+        cursor: pointer;
+        animation: pulse 2s infinite;
+        box-shadow: 0 4px 20px #ffb7d5;
+      }
+      .again-button {
+        background: linear-gradient(135deg, #ff85b3, #ff6b9d);
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 30px;
+        font-size: 20px;
+        font-weight: 900;
+        cursor: pointer;
+        box-shadow: 0 4px 20px #ffb7d5;
+        margin-top: 10px;
+      }
+      .sparkle {
+        position: absolute;
+        border-radius: 50%;
+        background-color: #ffb7d5;
+        animation: sparkle 2s infinite;
+      }
+    `;
+    document.head.appendChild(style);
+  }, []);
+
+  const sparkles = [
+    { top:"10%", left:"5%", width:"8px", height:"8px", animationDelay:"0s" },
+    { top:"20%", left:"90%", width:"6px", height:"6px", animationDelay:"0.3s" },
+    { top:"50%", left:"3%", width:"10px", height:"10px", animationDelay:"0.6s" },
+    { top:"70%", left:"95%", width:"7px", height:"7px", animationDelay:"0.9s" },
+    { top:"85%", left:"10%", width:"9px", height:"9px", animationDelay:"1.2s" },
+    { top:"30%", left:"50%", width:"5px", height:"5px", animationDelay:"1.5s" },
+    { top:"60%", left:"70%", width:"8px", height:"8px", animationDelay:"0.4s" },
+    { top:"15%", left:"40%", width:"6px", height:"6px", animationDelay:"0.8s" },
+  ];
 
   function findMatches(b) {
     const matched = Array.from({ length: 9 }, () => Array(9).fill(false));
@@ -88,7 +200,10 @@ function App() {
   function removeMatches(b, matched) {
     let count = 0;
     const newBoard = b.map((row, r) =>
-      row.map((code, c) => { if (matched[r][c]) { count++; return null; } return code; })
+      row.map((code, c) => {
+        if (matched[r][c]) { count++; return null; }
+        return code;
+      })
     );
     return { newBoard, count };
   }
@@ -105,6 +220,7 @@ function App() {
     }
     return newBoard;
   }
+
   async function handleGameOver(finalScore) {
     playGameOver();
     setGameOver(true);
@@ -125,15 +241,30 @@ function App() {
       newBoard[selected.row][selected.col] = newBoard[row][col];
       newBoard[row][col] = temp;
       const matched = findMatches(newBoard);
-      const hasMatch = matched.some(row => row.some(cell => cell));
+      const hasMatch = matched.some(r => r.some(cell => cell));
       let newScore = score;
+
       if (hasMatch) {
-        playMeow();
-        const { newBoard: cleared, count } = removeMatches(newBoard, matched);
-        newBoard = dropCats(cleared);
-        newScore = score + count * 10;
+        let currentBoard = newBoard;
+        let totalCount = 0;
+
+        while (true) {
+          const currentMatched = findMatches(currentBoard);
+          const currentHasMatch = currentMatched.some(r => r.some(cell => cell));
+          if (!currentHasMatch) break;
+          playMeow();
+          setShowConfetti(true);
+          setTimeout(() => setShowConfetti(false), 1500);
+          const { newBoard: cleared, count } = removeMatches(currentBoard, currentMatched);
+          currentBoard = dropCats(cleared);
+          totalCount += count;
+        }
+
+        newBoard = currentBoard;
+        newScore = score + totalCount * 10;
         setScore(newScore);
       }
+
       setBoard(newBoard);
       const newMoves = moves - 1;
       setMoves(newMoves);
@@ -152,20 +283,35 @@ function App() {
 
   if (!nameEntered) {
     return (
-      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", backgroundColor:"#fff0f5", minHeight:"100vh", padding:"20px" }}>
-        <h1 style={{ color:"#ff85b3", fontSize:"32px" }}>🐱 Mochi Crush</h1>
-        <p style={{ color:"#ff85b3", fontSize:"20px" }}>Enter your name to play!</p>
+      <div style={{
+        display:"flex", flexDirection:"column", alignItems:"center",
+        justifyContent:"center",
+        background:"linear-gradient(135deg, #fff0f5, #ffe0ef)",
+        minHeight:"100vh", padding:"20px",
+        position:"relative", overflow:"hidden",
+      }}>
+        {sparkles.map((s, i) => (
+          <div key={i} className="sparkle" style={s} />
+        ))}
+        <h1 className="title">🐱 Mochi Crush</h1>
+        <p style={{ color:"#ff85b3", fontSize:"20px", fontWeight:"700" }}>
+          Enter your name to play!
+        </p>
         <input
           type="text"
           placeholder="Your name..."
           value={playerName}
           onChange={(e) => setPlayerName(e.target.value)}
-          style={{ padding:"10px", fontSize:"18px", borderRadius:"10px", border:"2px solid #ffb7d5", marginBottom:"16px", textAlign:"center", outline:"none" }}
+          style={{
+            padding:"12px", fontSize:"18px", borderRadius:"20px",
+            border:"3px solid #ffb7d5", marginBottom:"20px",
+            textAlign:"center", outline:"none",
+            fontWeight:"700", background:"white",
+            boxShadow:"0 4px 15px #ffb7d5",
+          }}
         />
-        <button
-          onClick={() => { if (playerName.trim() !== "") setNameEntered(true); }}
-          style={{ backgroundColor:"#ff85b3", color:"white", border:"none", padding:"10px 30px", borderRadius:"10px", fontSize:"18px", cursor:"pointer" }}
-        >
+        <button className="play-button"
+          onClick={() => { if (playerName.trim() !== "") setNameEntered(true); }}>
           Play 🐱
         </button>
       </div>
@@ -173,43 +319,103 @@ function App() {
   }
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", backgroundColor:"#fff0f5", minHeight:"100vh", padding:"20px" }}>
-      <h1 style={{ color:"#ff85b3", fontSize:"32px" }}>🐱 Mochi Crush</h1>
-      <div style={{ display:"flex", gap:"40px", marginBottom:"16px" }}>
-        <p style={{ color:"#ff85b3", fontSize:"22px" }}>⭐ Score: {score}</p>
-        <p style={{ color: moves <= 5 ? "red" : "#ff85b3", fontSize:"22px" }}>👣 Moves: {moves}</p>
+    <div style={{
+      display:"flex", flexDirection:"column", alignItems:"center",
+      background:"linear-gradient(135deg, #fff0f5, #ffe0ef, #fff0f5)",
+      minHeight:"100vh", padding:"20px",
+      position:"relative", overflow:"hidden",
+    }}>
+      {sparkles.map((s, i) => (
+        <div key={i} className="sparkle" style={s} />
+      ))}
+      <Confetti show={showConfetti} />
+
+      <h1 className="title">🐱 Mochi Crush</h1>
+      <div style={{ display:"flex", gap:"20px", marginBottom:"20px" }}>
+        <div className="score-box">⭐ Score: {score}</div>
+        <div className="score-box" style={{
+          background: moves <= 5
+            ? "linear-gradient(135deg, #ff4444, #ff6666)"
+            : "linear-gradient(135deg, #ff85b3, #ffb7d5)"
+        }}>
+          👣 Moves: {moves}
+        </div>
       </div>
 
       {gameOver && (
-        <div style={{ backgroundColor:"#ffb7d5", padding:"20px", borderRadius:"20px", textAlign:"center", marginBottom:"16px" }}>
-          <p style={{ fontSize:"24px", color:"#ff85b3" }}>🐱 Game Over!</p>
-          <p style={{ fontSize:"20px", color:"#ff85b3" }}>Final Score: {score}</p>
-          <button onClick={restartGame} style={{ backgroundColor:"#ff85b3", color:"white", border:"none", padding:"10px 20px", borderRadius:"10px", fontSize:"18px", cursor:"pointer", marginTop:"10px" }}>
+        <div style={{
+          background:"linear-gradient(135deg, #ffb7d5, #ffe0ef)",
+          padding:"24px", borderRadius:"24px",
+          textAlign:"center", marginBottom:"20px",
+          boxShadow:"0 8px 32px #ffb7d5",
+        }}>
+          <p style={{ fontSize:"28px", color:"#ff85b3", fontWeight:"900" }}>
+            🐱 Game Over!
+          </p>
+          <p style={{ fontSize:"22px", color:"#ff85b3", fontWeight:"700" }}>
+            Final Score: {score} ⭐
+          </p>
+          <button className="again-button" onClick={restartGame}>
             Play Again 🐱
           </button>
         </div>
       )}
 
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(9, 60px)", gap:"6px", backgroundColor:"#ffe0ef", padding:"16px", borderRadius:"20px", opacity: gameOver ? 0.5 : 1 }}>
+      <div style={{
+        display:"grid", gridTemplateColumns:"repeat(9, 64px)",
+        gap:"8px",
+        background:"linear-gradient(135deg, #ffe0ef, #ffb7d5)",
+        padding:"20px", borderRadius:"28px",
+        boxShadow:"0 8px 32px #ffb7d5",
+        opacity: gameOver ? 0.5 : 1,
+      }}>
         {board.map((row, r) =>
           row.map((code, c) => (
             <div key={r+"-"+c} onClick={() => handleClick(r, c)}
-            style={{ width:"60px", height:"60px", borderRadius:"10px", overflow:"hidden",
-                border: selected && selected.row===r && selected.col===c ? "3px solid #ff85b3" : "2px solid #ffb7d5",
-                transform: selected && selected.row===r && selected.col===c ? "scale(1.1)" : "scale(1)",
-                transition:"all 0.2s ease", cursor: gameOver ? "not-allowed" : "pointer" }}>
-              <img src={catImages[code]} alt={code} style={{ width:"100%", height:"100%", objectFit:"cover", pointerEvents:"none" }} />
+              style={{
+                width:"64px", height:"64px", borderRadius:"16px",
+                overflow:"hidden",
+                border: selected && selected.row===r && selected.col===c
+                  ? "3px solid #ff85b3"
+                  : "3px solid rgba(255,255,255,0.6)",
+                transform: selected && selected.row===r && selected.col===c
+                  ? "scale(1.15)" : "scale(1)",
+                transition:"all 0.2s ease",
+                cursor: gameOver ? "not-allowed" : "pointer",
+                boxShadow: selected && selected.row===r && selected.col===c
+                  ? "0 0 16px #ff85b3"
+                  : "0 2px 8px rgba(255,133,179,0.3)",
+              }}>
+              <img src={catImages[code]} alt={code}
+                style={{ width:"100%", height:"100%", objectFit:"cover", pointerEvents:"none" }} />
             </div>
           ))
         )}
       </div>
 
-      <div style={{ marginTop:"30px", backgroundColor:"#ffe0ef", padding:"20px", borderRadius:"20px", width:"300px", textAlign:"center" }}>
-        <h2 style={{ color:"#ff85b3", fontSize:"24px" }}>🏆 Leaderboard</h2>
-        {leaderboard.length === 0 && <p style={{ color:"#ff85b3" }}>No scores yet! Be the first! 🐱</p>}
+      <div style={{
+        marginTop:"30px",
+        background:"linear-gradient(135deg, #ffe0ef, #ffb7d5)",
+        padding:"24px", borderRadius:"24px",
+        width:"320px", textAlign:"center",
+        boxShadow:"0 8px 32px #ffb7d5",
+      }}>
+        <h2 style={{ color:"#ff85b3", fontSize:"26px", fontWeight:"900" }}>
+          🏆 Leaderboard
+        </h2>
+        {leaderboard.length === 0 &&
+          <p style={{ color:"#ff85b3", fontWeight:"700" }}>
+            No scores yet! Be the first! 🐱
+          </p>
+        }
         {leaderboard.map((entry, i) => (
-          <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"8px", borderBottom:"1px solid #ffb7d5", color:"#ff85b3", fontSize:"18px" }}>
-            <span>{i+1}. {entry.name}</span>
+          <div key={i} style={{
+            display:"flex", justifyContent:"space-between",
+            padding:"10px",
+            borderBottom:"2px solid rgba(255,133,179,0.3)",
+            color:"#ff85b3", fontSize:"18px", fontWeight:"700",
+          }}>
+            <span>{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i+1) + "."} {entry.name}</span>
             <span>⭐ {entry.score}</span>
           </div>
         ))}
