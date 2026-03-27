@@ -1,102 +1,94 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import BG from "./cats/BG.jpg.webp";
 import MB from "./cats/MB.jpg.webp";
 import PE from "./cats/PE.jpg.webp";
 import SF from "./cats/SF.jpg.webp";
 import SI from "./cats/SI.jpg.webp";
 import TA from "./cats/TA.jpg.webp";
+import { saveScore, getLeaderboard } from "./firebase";
 
 function playPop() {
   const ctx = new AudioContext();
   const o = ctx.createOscillator();
   const g = ctx.createGain();
-  o.connect(g);
-  g.connect(ctx.destination);
+  o.connect(g); g.connect(ctx.destination);
   o.frequency.setValueAtTime(600, ctx.currentTime);
   g.gain.setValueAtTime(0.3, ctx.currentTime);
   g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
-  o.start(ctx.currentTime);
-  o.stop(ctx.currentTime + 0.1);
+  o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.1);
 }
 
 function playMeow() {
   const ctx = new AudioContext();
   const o = ctx.createOscillator();
   const g = ctx.createGain();
-  o.connect(g);
-  g.connect(ctx.destination);
+  o.connect(g); g.connect(ctx.destination);
   o.type = "sine";
   o.frequency.setValueAtTime(400, ctx.currentTime);
   o.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.1);
   o.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.3);
   g.gain.setValueAtTime(0.3, ctx.currentTime);
   g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-  o.start(ctx.currentTime);
-  o.stop(ctx.currentTime + 0.3);
+  o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.3);
 }
 
 function playGameOver() {
   const ctx = new AudioContext();
   const o = ctx.createOscillator();
   const g = ctx.createGain();
-  o.connect(g);
-  g.connect(ctx.destination);
+  o.connect(g); g.connect(ctx.destination);
   o.type = "sawtooth";
   o.frequency.setValueAtTime(300, ctx.currentTime);
   o.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.5);
   g.gain.setValueAtTime(0.3, ctx.currentTime);
   g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
-  o.start(ctx.currentTime);
-  o.stop(ctx.currentTime + 0.5);
+  o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.5);
 }
 
+const INITIAL_BOARD = [
+  ["SI","PE","TA","MB","BG","SF","SI","PE","TA"],
+  ["PE","TA","MB","BG","SF","SI","PE","TA","MB"],
+  ["TA","MB","BG","SF","SI","PE","TA","MB","BG"],
+  ["MB","BG","SF","SI","PE","TA","MB","BG","SF"],
+  ["BG","SF","SI","PE","TA","MB","BG","SF","SI"],
+  ["SF","SI","PE","TA","MB","BG","SF","SI","PE"],
+  ["SI","PE","TA","MB","BG","SF","SI","PE","TA"],
+  ["PE","TA","MB","BG","SF","SI","PE","TA","MB"],
+  ["TA","MB","BG","SF","SI","PE","TA","MB","BG"],
+];
+
 function App() {
-
   const catImages = { SI, PE, TA, MB, BG, SF };
-
-  const [board, setBoard] = useState([
-    ["SI","PE","TA","MB","BG","SF","SI","PE","TA"],
-    ["PE","TA","MB","BG","SF","SI","PE","TA","MB"],
-    ["TA","MB","BG","SF","SI","PE","TA","MB","BG"],
-    ["MB","BG","SF","SI","PE","TA","MB","BG","SF"],
-    ["BG","SF","SI","PE","TA","MB","BG","SF","SI"],
-    ["SF","SI","PE","TA","MB","BG","SF","SI","PE"],
-    ["SI","PE","TA","MB","BG","SF","SI","PE","TA"],
-    ["PE","TA","MB","BG","SF","SI","PE","TA","MB"],
-    ["TA","MB","BG","SF","SI","PE","TA","MB","BG"],
-  ]);
-
+  const [board, setBoard] = useState(INITIAL_BOARD);
   const [selected, setSelected] = useState(null);
   const [score, setScore] = useState(0);
   const [moves, setMoves] = useState(20);
   const [gameOver, setGameOver] = useState(false);
+  const [playerName, setPlayerName] = useState("");
+  const [nameEntered, setNameEntered] = useState(false);
+  const [leaderboard, setLeaderboard] = useState([]);
+
+  useEffect(() => {
+    getLeaderboard().then(data => setLeaderboard(data));
+  }, []);
 
   function findMatches(b) {
     const matched = Array.from({ length: 9 }, () => Array(9).fill(false));
-    for (let r = 0; r < 9; r++) {
-      for (let c = 0; c < 7; c++) {
-        if (b[r][c] && b[r][c] === b[r][c+1] && b[r][c] === b[r][c+2]) {
+    for (let r = 0; r < 9; r++)
+      for (let c = 0; c < 7; c++)
+        if (b[r][c] && b[r][c] === b[r][c+1] && b[r][c] === b[r][c+2])
           matched[r][c] = matched[r][c+1] = matched[r][c+2] = true;
-        }
-      }
-    }
-    for (let r = 0; r < 7; r++) {
-      for (let c = 0; c < 9; c++) {
-        if (b[r][c] && b[r][c] === b[r+1][c] && b[r][c] === b[r+2][c]) {
+    for (let r = 0; r < 7; r++)
+      for (let c = 0; c < 9; c++)
+        if (b[r][c] && b[r][c] === b[r+1][c] && b[r][c] === b[r+2][c])
           matched[r][c] = matched[r+1][c] = matched[r+2][c] = true;
-        }
-      }
-    }
     return matched;
   }
 
   function removeMatches(b, matched) {
     let count = 0;
     const newBoard = b.map((row, r) =>
-      row.map((code, c) => {
-        if (matched[r][c]) { count++; return null; }
-        return code;
-      })
+      row.map((code, c) => { if (matched[r][c]) { count++; return null; } return code; })
     );
     return { newBoard, count };
   }
@@ -106,184 +98,121 @@ function App() {
     const breeds = ["SI","PE","TA","MB","BG","SF"];
     for (let c = 0; c < 9; c++) {
       let emptyRow = 8;
-      for (let r = 8; r >= 0; r--) {
-        if (b[r][c] !== null) {
-          newBoard[emptyRow][c] = b[r][c];
-          emptyRow--;
-        }
-      }
-      for (let r = emptyRow; r >= 0; r--) {
+      for (let r = 8; r >= 0; r--)
+        if (b[r][c] !== null) { newBoard[emptyRow][c] = b[r][c]; emptyRow--; }
+      for (let r = emptyRow; r >= 0; r--)
         newBoard[r][c] = breeds[Math.floor(Math.random() * breeds.length)];
-      }
     }
     return newBoard;
+  }
+  async function handleGameOver(finalScore) {
+    playGameOver();
+    setGameOver(true);
+    await saveScore(playerName, finalScore);
+    const updated = await getLeaderboard();
+    setLeaderboard(updated);
   }
 
   function handleClick(row, col) {
     if (gameOver) return;
-    if (!selected) {
-      playPop();
-      setSelected({ row, col });
-      return;
-    }
+    if (!selected) { playPop(); setSelected({ row, col }); return; }
     const rowDiff = Math.abs(selected.row - row);
     const colDiff = Math.abs(selected.col - col);
-    const isNeighbor = (rowDiff === 1 && colDiff === 0) ||
-                       (rowDiff === 0 && colDiff === 1);
-
+    const isNeighbor = (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
     if (isNeighbor) {
       let newBoard = board.map(r => [...r]);
       const temp = newBoard[selected.row][selected.col];
       newBoard[selected.row][selected.col] = newBoard[row][col];
       newBoard[row][col] = temp;
-
       const matched = findMatches(newBoard);
       const hasMatch = matched.some(row => row.some(cell => cell));
-
+      let newScore = score;
       if (hasMatch) {
         playMeow();
         const { newBoard: cleared, count } = removeMatches(newBoard, matched);
-        const dropped = dropCats(cleared);
-        setBoard(dropped);
-        setScore(prev => prev + count * 10);
-      } else {
-        setBoard(newBoard);
+        newBoard = dropCats(cleared);
+        newScore = score + count * 10;
+        setScore(newScore);
       }
-
+      setBoard(newBoard);
       const newMoves = moves - 1;
       setMoves(newMoves);
-      if (newMoves === 0) {
-        playGameOver();
-        setGameOver(true);
-      }
+      if (newMoves === 0) handleGameOver(newScore);
     }
-
     setSelected(null);
   }
 
   function restartGame() {
-    setBoard([
-      ["SI","PE","TA","MB","BG","SF","SI","PE","TA"],
-      ["PE","TA","MB","BG","SF","SI","PE","TA","MB"],
-      ["TA","MB","BG","SF","SI","PE","TA","MB","BG"],
-      ["MB","BG","SF","SI","PE","TA","MB","BG","SF"],
-      ["BG","SF","SI","PE","TA","MB","BG","SF","SI"],
-      ["SF","SI","PE","TA","MB","BG","SF","SI","PE"],
-      ["SI","PE","TA","MB","BG","SF","SI","PE","TA"],
-      ["PE","TA","MB","BG","SF","SI","PE","TA","MB"],
-      ["TA","MB","BG","SF","SI","PE","TA","MB","BG"],
-    ]);
+    setBoard(INITIAL_BOARD);
     setScore(0);
     setMoves(20);
     setGameOver(false);
     setSelected(null);
   }
 
+  if (!nameEntered) {
+    return (
+      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", backgroundColor:"#fff0f5", minHeight:"100vh", padding:"20px" }}>
+        <h1 style={{ color:"#ff85b3", fontSize:"32px" }}>🐱 Mochi Crush</h1>
+        <p style={{ color:"#ff85b3", fontSize:"20px" }}>Enter your name to play!</p>
+        <input
+          type="text"
+          placeholder="Your name..."
+          value={playerName}
+          onChange={(e) => setPlayerName(e.target.value)}
+          style={{ padding:"10px", fontSize:"18px", borderRadius:"10px", border:"2px solid #ffb7d5", marginBottom:"16px", textAlign:"center", outline:"none" }}
+        />
+        <button
+          onClick={() => { if (playerName.trim() !== "") setNameEntered(true); }}
+          style={{ backgroundColor:"#ff85b3", color:"white", border:"none", padding:"10px 30px", borderRadius:"10px", fontSize:"18px", cursor:"pointer" }}
+        >
+          Play 🐱
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div style={{
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      backgroundColor: "#fff0f5",
-      minHeight: "100vh",
-      padding: "20px",
-    }}>
-
-      <h1 style={{ color: "#ff85b3", fontSize: "32px" }}>
-        🐱 Mochi Crush
-      </h1>
-
-      <div style={{
-        display: "flex",
-        gap: "40px",
-        marginBottom: "16px",
-      }}>
-        <p style={{ color: "#ff85b3", fontSize: "22px" }}>
-          ⭐ Score: {score}
-        </p>
-        <p style={{ color: moves <= 5 ? "red" : "#ff85b3", fontSize: "22px" }}>
-          👣 Moves: {moves}
-        </p>
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", backgroundColor:"#fff0f5", minHeight:"100vh", padding:"20px" }}>
+      <h1 style={{ color:"#ff85b3", fontSize:"32px" }}>🐱 Mochi Crush</h1>
+      <div style={{ display:"flex", gap:"40px", marginBottom:"16px" }}>
+        <p style={{ color:"#ff85b3", fontSize:"22px" }}>⭐ Score: {score}</p>
+        <p style={{ color: moves <= 5 ? "red" : "#ff85b3", fontSize:"22px" }}>👣 Moves: {moves}</p>
       </div>
 
       {gameOver && (
-        <div style={{
-          backgroundColor: "#ffb7d5",
-          padding: "20px",
-          borderRadius: "20px",
-          textAlign: "center",
-          marginBottom: "16px",
-        }}>
-          <p style={{ fontSize: "24px", color: "#ff85b3" }}>
-            🐱 Game Over!
-          </p>
-          <p style={{ fontSize: "20px", color: "#ff85b3" }}>
-            Final Score: {score}
-          </p>
-          <button
-            onClick={restartGame}
-            style={{
-              backgroundColor: "#ff85b3",
-              color: "white",
-              border: "none",
-              padding: "10px 20px",
-              borderRadius: "10px",
-              fontSize: "18px",
-              cursor: "pointer",
-              marginTop: "10px",
-            }}
-          >
+        <div style={{ backgroundColor:"#ffb7d5", padding:"20px", borderRadius:"20px", textAlign:"center", marginBottom:"16px" }}>
+          <p style={{ fontSize:"24px", color:"#ff85b3" }}>🐱 Game Over!</p>
+          <p style={{ fontSize:"20px", color:"#ff85b3" }}>Final Score: {score}</p>
+          <button onClick={restartGame} style={{ backgroundColor:"#ff85b3", color:"white", border:"none", padding:"10px 20px", borderRadius:"10px", fontSize:"18px", cursor:"pointer", marginTop:"10px" }}>
             Play Again 🐱
           </button>
         </div>
       )}
 
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(9, 60px)",
-        gap: "6px",
-        backgroundColor: "#ffe0ef",
-        padding: "16px",
-        borderRadius: "20px",
-        opacity: gameOver ? 0.5 : 1,
-      }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(9, 60px)", gap:"6px", backgroundColor:"#ffe0ef", padding:"16px", borderRadius:"20px", opacity: gameOver ? 0.5 : 1 }}>
         {board.map((row, r) =>
           row.map((code, c) => (
-            <div
-              key={r + "-" + c}
-              onClick={() => handleClick(r, c)}
-              style={{
-                width: "60px",
-                height: "60px",
-                borderRadius: "10px",
-                overflow: "hidden",
-                border: selected &&
-                        selected.row === r &&
-                        selected.col === c
-                  ? "3px solid #ff85b3"
-                  : "2px solid #ffb7d5",
-                transform: selected &&
-                           selected.row === r &&
-                           selected.col === c
-                  ? "scale(1.1)"
-                  : "scale(1)",
-                transition: "all 0.2s ease",
-                cursor: gameOver ? "not-allowed" : "pointer",
-              }}
-            >
-              <img
-                src={catImages[code]}
-                alt={code}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  pointerEvents: "none",
-                }}
-              />
+            <div key={r+"-"+c} onClick={() => handleClick(r, c)}
+            style={{ width:"60px", height:"60px", borderRadius:"10px", overflow:"hidden",
+                border: selected && selected.row===r && selected.col===c ? "3px solid #ff85b3" : "2px solid #ffb7d5",
+                transform: selected && selected.row===r && selected.col===c ? "scale(1.1)" : "scale(1)",
+                transition:"all 0.2s ease", cursor: gameOver ? "not-allowed" : "pointer" }}>
+              <img src={catImages[code]} alt={code} style={{ width:"100%", height:"100%", objectFit:"cover", pointerEvents:"none" }} />
             </div>
           ))
         )}
+      </div>
+
+      <div style={{ marginTop:"30px", backgroundColor:"#ffe0ef", padding:"20px", borderRadius:"20px", width:"300px", textAlign:"center" }}>
+        <h2 style={{ color:"#ff85b3", fontSize:"24px" }}>🏆 Leaderboard</h2>
+        {leaderboard.length === 0 && <p style={{ color:"#ff85b3" }}>No scores yet! Be the first! 🐱</p>}
+        {leaderboard.map((entry, i) => (
+          <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"8px", borderBottom:"1px solid #ffb7d5", color:"#ff85b3", fontSize:"18px" }}>
+            <span>{i+1}. {entry.name}</span>
+            <span>⭐ {entry.score}</span>
+          </div>
+        ))}
       </div>
 
     </div>
