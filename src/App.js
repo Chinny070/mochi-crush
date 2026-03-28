@@ -47,6 +47,19 @@ function playSpecial() {
   o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.4);
 }
 
+function playMega() {
+  const ctx = new AudioContext();
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.connect(g); g.connect(ctx.destination);
+  o.type = "sine";
+  o.frequency.setValueAtTime(200, ctx.currentTime);
+  o.frequency.exponentialRampToValueAtTime(2000, ctx.currentTime + 0.5);
+  g.gain.setValueAtTime(0.5, ctx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+  o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.6);
+}
+
 function playGameOver() {
   const ctx = new AudioContext();
   const o = ctx.createOscillator();
@@ -78,11 +91,11 @@ function Confetti(props) {
   if (!props.show) return null;
   return (
     <div style={{ position:"fixed", top:0, left:0, width:"100%", height:"100%", pointerEvents:"none", zIndex:999 }}>
-      {Array.from({ length: 20 }).map(function(_, i) {
+      {Array.from({ length: 30 }).map(function(_, i) {
         return (
           <div key={i} style={{
             position: "absolute",
-            left: (i * 5) + "%",
+            left: (i * 3.3) + "%",
             top: "-10px",
             width: "10px",
             height: "10px",
@@ -109,6 +122,7 @@ function App() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [showConfetti, setShowConfetti] = useState(false);
   const [tileSize, setTileSize] = useState(40);
+  const [comboMessage, setComboMessage] = useState("");
 
   useEffect(function() {
     getLeaderboard().then(function(data) { setLeaderboard(data); });
@@ -142,6 +156,7 @@ function App() {
       "@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }",
       "@keyframes zoomglow { 0%, 100% { box-shadow: 0 0 8px #ffff00; } 50% { box-shadow: 0 0 20px #ffff00; } }",
       "@keyframes rainbowglow { 0% { box-shadow: 0 0 10px #ff0000; } 25% { box-shadow: 0 0 10px #ff85b3; } 50% { box-shadow: 0 0 10px #0000ff; } 75% { box-shadow: 0 0 10px #00ff00; } 100% { box-shadow: 0 0 10px #ff0000; } }",
+      "@keyframes combopop { 0% { transform: scale(0); opacity: 0; } 50% { transform: scale(1.3); opacity: 1; } 100% { transform: scale(1); opacity: 0; } }",
       ".score-box { animation: glow 2s infinite; background: linear-gradient(135deg, #ff85b3, #ffb7d5); border-radius: 16px; padding: 8px 16px; color: white; font-size: 16px; font-weight: 900; }",
       ".title { animation: float 3s ease-in-out infinite; background: linear-gradient(135deg, #ff85b3, #ff6b9d); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 36px; font-weight: 900; margin-bottom: 8px; text-align: center; }",
       ".play-button { background: linear-gradient(135deg, #ff85b3, #ff6b9d); color: white; border: none; padding: 14px 40px; border-radius: 30px; font-size: 20px; font-weight: 900; cursor: pointer; animation: pulse 2s infinite; box-shadow: 0 4px 20px #ffb7d5; }",
@@ -149,6 +164,7 @@ function App() {
       ".sparkle { position: absolute; border-radius: 50%; background-color: #ffb7d5; animation: sparkle 2s infinite; }",
       ".zoom-tile { animation: zoomglow 1s infinite; }",
       ".rainbow-tile { animation: rainbowglow 1s infinite; }",
+      ".combo-message { animation: combopop 1.5s ease forwards; position: fixed; top: 40%; left: 50%; transform: translateX(-50%); font-size: 32px; font-weight: 900; color: #ff85b3; text-shadow: 0 0 20px #ffb7d5; z-index: 1000; white-space: nowrap; }",
       "input { width: 80%; max-width: 280px; }"
     ].join(" ");
     document.head.appendChild(style);
@@ -161,15 +177,96 @@ function App() {
     { top:"70%", left:"95%", width:"7px", height:"7px", animationDelay:"0.9s" },
     { top:"85%", left:"10%", width:"9px", height:"9px", animationDelay:"1.2s" },
   ];
+
+  function showCombo(message) {
+    setComboMessage(message);
+    setTimeout(function() { setComboMessage(""); }, 1500);
+  }
+
+  function clearEntireBoard(b) {
+    var count = 0;
+    var newBoard = b.map(function(row) {
+      return row.map(function(code) {
+        if (code && code !== null) { count++; return null; }
+        return null;
+      });
+    });
+    return { newBoard: newBoard, count: count };
+  }
+
+  function clearTwoRows(b, row1, row2) {
+    var count = 0;
+    var newBoard = b.map(function(r, ri) {
+      return r.map(function(code) {
+        if (ri === row1 || ri === row2) { count++; return null; }
+        return code;
+      });
+    });
+    return { newBoard: newBoard, count: count };
+  }
+
+  function clearRowAndAllBreed(b, row, breed) {
+    var count = 0;
+    var newBoard = b.map(function(r, ri) {
+      return r.map(function(code) {
+        if (ri === row || code === breed) { count++; return null; }
+        return code;
+      });
+    });
+    return { newBoard: newBoard, count: count };
+  }
+
+  function handleSpecialCombo(b, row1, col1, row2, col2) {
+    var code1 = b[row1][col1];
+    var code2 = b[row2][col2];
+    var newBoard = b.map(function(r) { return r.slice(); });
+    newBoard[row1][col1] = null;
+    newBoard[row2][col2] = null;
+
+    if (code1 === "RAINBOW" && code2 === "RAINBOW") {
+      showCombo("MEGA BLAST! 🌈🌈");
+      playMega();
+      var res = clearEntireBoard(newBoard);
+      return { newBoard: dropCats(res.newBoard), count: res.count };
+    }
+
+    if ((code1 === "ZOOM" && code2 === "ZOOM")) {
+      showCombo("DOUBLE ZOOM! ⚡⚡");
+      playMega();
+      var res2 = clearTwoRows(newBoard, row1, row2);
+      return { newBoard: dropCats(res2.newBoard), count: res2.count };
+    }
+
+    if ((code1 === "RAINBOW" && code2 === "ZOOM") ||
+        (code1 === "ZOOM" && code2 === "RAINBOW")) {
+      showCombo("RAINBOW ZOOM! 🌈⚡");
+      playMega();
+      var breed = null;
+      for (var r = 0; r < 9; r++)
+        for (var c = 0; c < 9; c++)
+          if (newBoard[r][c] && newBoard[r][c] !== "ZOOM" && newBoard[r][c] !== "RAINBOW") {
+            breed = newBoard[r][c];
+            break;
+          }
+      var targetRow = code1 === "ZOOM" ? row1 : row2;
+      var res3 = clearRowAndAllBreed(newBoard, targetRow, breed);
+      return { newBoard: dropCats(res3.newBoard), count: res3.count };
+    }
+
+    return null;
+  }
+
   function findMatches(b) {
     var matched = Array.from({ length: 9 }, function() { return Array(9).fill(false); });
     for (var r = 0; r < 9; r++)
       for (var c = 0; c < 7; c++)
-        if (b[r][c] && b[r][c] === b[r][c+1] && b[r][c] === b[r][c+2])
+        if (b[r][c] && b[r][c] === b[r][c+1] && b[r][c] === b[r][c+2] &&
+            b[r][c] !== "ZOOM" && b[r][c] !== "RAINBOW")
           matched[r][c] = matched[r][c+1] = matched[r][c+2] = true;
     for (var r2 = 0; r2 < 7; r2++)
       for (var c2 = 0; c2 < 9; c2++)
-        if (b[r2][c2] && b[r2][c2] === b[r2+1][c2] && b[r2][c2] === b[r2+2][c2])
+        if (b[r2][c2] && b[r2][c2] === b[r2+1][c2] && b[r2][c2] === b[r2+2][c2] &&
+            b[r2][c2] !== "ZOOM" && b[r2][c2] !== "RAINBOW")
           matched[r2][c2] = matched[r2+1][c2] = matched[r2+2][c2] = true;
     return matched;
   }
@@ -178,8 +275,9 @@ function App() {
     var code = b[row][col];
     var newBoard = b.map(function(r) { return r.slice(); });
     var count = 0;
+    newBoard[row][col] = null;
     if (code === "ZOOM") {
-      for (var c = 0; c < 9; c++) { newBoard[row][c] = null; count++; }
+      for (var c = 0; c < 9; c++) { if (newBoard[row][c] !== null) { newBoard[row][c] = null; count++; } }
     } else if (code === "RAINBOW") {
       for (var r = 0; r < 9; r++)
         for (var c2 = 0; c2 < 9; c2++)
@@ -225,33 +323,65 @@ function App() {
   function handleClick(row, col) {
     if (gameOver) return;
     var code = board[row][col];
-    if (code === "ZOOM" || code === "RAINBOW") {
+
+    if (selected) {
+      var code1 = board[selected.row][selected.col];
+      var code2 = board[row][col];
+      var rowDiff = Math.abs(selected.row - row);
+      var colDiff = Math.abs(selected.col - col);
+      var isNeighbor = (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
+
+      if (isNeighbor &&
+          (code1 === "ZOOM" || code1 === "RAINBOW") &&
+          (code2 === "ZOOM" || code2 === "RAINBOW")) {
+        setShowConfetti(true);
+        setTimeout(function() { setShowConfetti(false); }, 2000);
+        var comboResult = handleSpecialCombo(board, selected.row, selected.col, row, col);
+        if (comboResult) {
+          setBoard(comboResult.newBoard);
+          var newScore = score + comboResult.count * 30;
+          setScore(newScore);
+          var newMoves = moves - 1;
+          setMoves(newMoves);
+          if (newMoves === 0) handleGameOver(newScore);
+          setSelected(null);
+          return;
+        }
+      }
+    }
+
+    if (!selected && (code === "ZOOM" || code === "RAINBOW")) {
       playSpecial();
       setShowConfetti(true);
       setTimeout(function() { setShowConfetti(false); }, 1500);
+      if (code === "ZOOM") showCombo("ZOOMIES! ⚡");
+      if (code === "RAINBOW") showCombo("RAINBOW! 🌈");
       var result = applySpecialTile(board, row, col);
       var dropped = dropCats(result.newBoard);
       setBoard(dropped);
-      var newScore = score + result.count * 20;
-      setScore(newScore);
-      var newMoves = moves - 1;
-      setMoves(newMoves);
-      if (newMoves === 0) handleGameOver(newScore);
+      var newScore2 = score + result.count * 20;
+      setScore(newScore2);
+      var newMoves2 = moves - 1;
+      setMoves(newMoves2);
+      if (newMoves2 === 0) handleGameOver(newScore2);
       setSelected(null);
       return;
     }
+
     if (!selected) { playPop(); setSelected({ row: row, col: col }); return; }
-    var rowDiff = Math.abs(selected.row - row);
-    var colDiff = Math.abs(selected.col - col);
-    var isNeighbor = (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
-    if (isNeighbor) {
+
+    var rowDiff2 = Math.abs(selected.row - row);
+    var colDiff2 = Math.abs(selected.col - col);
+    var isNeighbor2 = (rowDiff2 === 1 && colDiff2 === 0) || (rowDiff2 === 0 && colDiff2 === 1);
+    if (isNeighbor2) {
       var newBoard = board.map(function(r) { return r.slice(); });
       var temp = newBoard[selected.row][selected.col];
       newBoard[selected.row][selected.col] = newBoard[row][col];
       newBoard[row][col] = temp;
       var matched = findMatches(newBoard);
       var hasMatch = matched.some(function(r) { return r.some(function(cell) { return cell; }); });
-      var newScore2 = score;
+      var newScore3 = score;
+
       if (hasMatch) {
         var currentBoard = newBoard;
         var totalCount = 0;
@@ -264,30 +394,35 @@ function App() {
           setShowConfetti(true);
           setTimeout(function() { setShowConfetti(false); }, 1500);
           var matchedPositions = [];
+          var matchedCount = 0;
           for (var r3 = 0; r3 < 9; r3++)
             for (var c3 = 0; c3 < 9; c3++)
-              if (currentMatched[r3][c3]) matchedPositions.push({ r: r3, c: c3 });
+              if (currentMatched[r3][c3]) {
+                matchedPositions.push({ r: r3, c: c3 });
+                matchedCount++;
+              }
           var res = removeMatches(currentBoard, currentMatched);
           totalCount += res.count;
           currentBoard = res.newBoard;
-          if (res.count === 4) {
-            var pos4 = matchedPositions[0];
+          if (matchedCount === 4) {
+            var pos4 = matchedPositions[Math.floor(matchedPositions.length / 2)];
             currentBoard[pos4.r][pos4.c] = "ZOOM";
-          } else if (res.count >= 5) {
-            var pos5 = matchedPositions[0];
+          } else if (matchedCount >= 5) {
+            var pos5 = matchedPositions[Math.floor(matchedPositions.length / 2)];
             currentBoard[pos5.r][pos5.c] = "RAINBOW";
           }
           currentBoard = dropCats(currentBoard);
           loopCount++;
         }
         newBoard = currentBoard;
-        newScore2 = score + totalCount * 10;
-        setScore(newScore2);
+        newScore3 = score + totalCount * 10;
+        setScore(newScore3);
       }
+
       setBoard(newBoard);
-      var newMoves2 = moves - 1;
-      setMoves(newMoves2);
-      if (newMoves2 === 0) handleGameOver(newScore2);
+      var newMoves3 = moves - 1;
+      setMoves(newMoves3);
+      if (newMoves3 === 0) handleGameOver(newScore3);
     }
     setSelected(null);
   }
@@ -298,6 +433,7 @@ function App() {
     setMoves(20);
     setGameOver(false);
     setSelected(null);
+    setComboMessage("");
   }
 
   var gap = tileSize > 40 ? 6 : 4;
@@ -348,7 +484,10 @@ function App() {
     }}>
       {sparkles.map(function(s, i) { return <div key={i} className="sparkle" style={s} />; })}
       <Confetti show={showConfetti} />
+      {comboMessage && <div className="combo-message">{comboMessage}</div>}
+
       <h1 className="title">Mochi Crush</h1>
+
       <div style={{ display:"flex", gap:"10px", marginBottom:"10px", flexWrap:"wrap", justifyContent:"center" }}>
         <div className="score-box">Score: {score}</div>
         <div className="score-box" style={{
@@ -359,15 +498,20 @@ function App() {
           Moves: {moves}
         </div>
       </div>
+
       <div style={{
-        display:"flex", gap:"16px", marginBottom:"10px",
+        display:"flex", gap:"8px", marginBottom:"10px",
         background:"rgba(255,183,213,0.3)",
-        padding:"8px 16px", borderRadius:"12px",
-        fontSize:"13px", color:"#ff85b3", fontWeight:"700",
+        padding:"8px 12px", borderRadius:"12px",
+        fontSize:"11px", color:"#ff85b3", fontWeight:"700",
+        flexWrap:"wrap", justifyContent:"center",
       }}>
-        <span>Match 4 = Zoomies!</span>
-        <span>Match 5 = Rainbow!</span>
-        </div>
+        <span>Match 4 = Zoom</span>
+        <span>Match 5 = Rainbow</span>
+        <span>Zoom+Zoom = 2 Rows</span>
+        <span>Rainbow+Rainbow = Board!</span>
+      </div>
+
       {gameOver && (
         <div style={{
           background:"linear-gradient(135deg, #ffb7d5, #ffe0ef)",
@@ -381,6 +525,7 @@ function App() {
           <button className="again-button" onClick={restartGame}>Play Again</button>
         </div>
       )}
+
       <div style={{
         display:"grid",
         gridTemplateColumns:"repeat(9, " + tileSize + "px)",
@@ -425,6 +570,7 @@ function App() {
           });
         })}
       </div>
+
       <div style={{
         marginTop:"16px",
         background:"linear-gradient(135deg, #ffe0ef, #ffb7d5)",
